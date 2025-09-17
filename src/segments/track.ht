@@ -1,0 +1,112 @@
+class TrackEndpoint {
+    var publicClient: HttpClient;
+    var privateClient: HttpClient;
+    var auth: AuthEndpoint;
+    
+    construct(this.publicClient, this.privateClient, this.auth) {
+        print('🎵 Initialisation de l\'endpoint Track');
+    }
+    
+    fun get(id: String) -> Future {
+        return Future((resolve, reject) {
+            print('🎵 Récupération du titre ID: ${id}');
+            
+            final url = '/track/${id}';
+            
+            this.publicClient.get(url).then((response) {
+                if (response.statusCode == 200) {
+                    try {
+                        final data = response.toJson();
+                        final track = this._mapTrackToSpotube(data);
+                        print('✅ Titre récupéré: ${track.name}');
+                        resolve(track);
+                    } catch (e) {
+                        print('❌ Erreur parsing titre: ${e}');
+                        reject('Erreur lors du parsing du titre: ${e}');
+                    }
+                } else {
+                    print('❌ Titre non trouvé: ${response.statusCode}');
+                    reject('Titre non trouvé');
+                }
+            }).catchError((error) {
+                print('❌ Erreur réseau titre: ${error}');
+                reject(error.toString());
+            });
+        });
+    }
+    
+    fun getRecommendations(id: String, limit: number = 20) -> Future {
+        return Future((resolve, reject) {
+            final url = '/track/${id}/radio?index=0&limit=${limit}';
+            
+            this.publicClient.get(url).then((response) {
+                if (response.statusCode == 200) {
+                    try {
+                        final data = response.toJson();
+                        final tracks = [];
+                        
+                        if (data.data && data.data.isNotEmpty) {
+                            for (track in data.data) {
+                                tracks.add(this._mapTrackToSpotube(track));
+                            }
+                        }
+                        
+                        print('✅ ${tracks.length} recommandations trouvées pour le titre ${id}');
+                        resolve(tracks);
+                    } catch (e) {
+                        print('❌ Erreur parsing recommandations: ${e}');
+                        resolve([]);
+                    }
+                } else {
+                    print('⚠️ Pas de recommandations disponibles pour ${id}');
+                    resolve([]);
+                }
+            }).catchError((error) {
+                print('❌ Erreur réseau recommandations: ${error}');
+                resolve([]);
+            });
+        });
+    }
+    
+    fun _mapTrackToSpotube(deezerTrack: Map) -> Map {
+        return {
+            'id': deezerTrack.id?.toString() || '0',
+            'name': deezerTrack.title || 'Titre inconnu',
+            'externalUri': deezerTrack.link || '',
+            'artists': [{
+                'id': deezerTrack.artist?.id?.toString() || '0',
+                'name': deezerTrack.artist?.name || 'Artiste inconnu',
+                'externalUri': deezerTrack.artist?.link || ''
+            }],
+            'album': {
+                'id': deezerTrack.album?.id?.toString() || '0',
+                'name': deezerTrack.album?.title || 'Album inconnu',
+                'externalUri': deezerTrack.album?.link || '',
+                'images': deezerTrack.album?.cover_medium ? [{
+                    'url': deezerTrack.album.cover_small || deezerTrack.album.cover_medium,
+                    'width': 56,
+                    'height': 56
+                }, {
+                    'url': deezerTrack.album.cover_medium,
+                    'width': 250,
+                    'height': 250
+                }, {
+                    'url': deezerTrack.album.cover_big || deezerTrack.album.cover_medium,
+                    'width': 500,
+                    'height': 500
+                }] : []
+            },
+            'durationMs': (deezerTrack.duration || 0) * 1000,
+            'explicit': deezerTrack.explicit_lyrics || false,
+            'isrc': deezerTrack.isrc || '',
+            'popularity': deezerTrack.rank || 0,
+            'previewUrl': deezerTrack.preview || null,
+            'discNumber': deezerTrack.disk_number || 1,
+            'trackNumber': deezerTrack.track_position || 0,
+            'availableMarkets': ['FR'],
+            'externalIds': {
+                'isrc': deezerTrack.isrc || ''
+            }
+        };
+    }
+}

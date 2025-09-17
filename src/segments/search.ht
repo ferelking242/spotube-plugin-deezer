@@ -1,0 +1,281 @@
+class SearchEndpoint {
+    var publicClient: HttpClient;
+    var privateClient: HttpClient;
+    var auth: AuthEndpoint;
+    
+    construct(this.publicClient, this.privateClient, this.auth) {
+        print('🔍 Initialisation de l\'endpoint de recherche');
+    }
+    
+    fun search(query: String, offset: number = 0, limit: number = 20) -> Future {
+        return Future((resolve, reject) {
+            if (query.trim().isEmpty) {
+                resolve({
+                    'tracks': [],
+                    'albums': [],
+                    'artists': [],
+                    'playlists': []
+                });
+                return;
+            }
+            
+            print('🔍 Recherche: "${query}"');
+            
+            final searches = [
+                this._searchTracks(query, offset, limit),
+                this._searchAlbums(query, offset ~/ 2, limit ~/ 2),
+                this._searchArtists(query, offset ~/ 3, limit ~/ 3),
+                this._searchPlaylists(query, offset ~/ 4, limit ~/ 4)
+            ];
+            
+            Future.wait(searches).then((results) {
+                final response = {
+                    'tracks': results[0] || [],
+                    'albums': results[1] || [],
+                    'artists': results[2] || [],
+                    'playlists': results[3] || []
+                };
+                
+                final totalResults = (results[0]?.length || 0) + (results[1]?.length || 0) + 
+                                  (results[2]?.length || 0) + (results[3]?.length || 0);
+                print('✅ Recherche terminée: ${totalResults} résultats pour "${query}"');
+                
+                resolve(response);
+            }).catchError((error) {
+                print('❌ Erreur de recherche pour "${query}": ${error}');
+                reject(error.toString());
+            });
+        });
+    }
+    
+    fun _searchTracks(query: String, offset: number, limit: number) -> Future {
+        return Future((resolve, reject) {
+            final encodedQuery = Uri.encodeComponent(query);
+            final url = '/search/track?q=${encodedQuery}&index=${offset}&limit=${limit}';
+            
+            this.publicClient.get(url).then((response) {
+                if (response.statusCode == 200) {
+                    try {
+                        final data = response.toJson();
+                        final tracks = [];
+                        
+                        if (data.data && data.data.isNotEmpty) {
+                            for (track in data.data) {
+                                tracks.add(this._mapTrackToSpotube(track));
+                            }
+                        }
+                        
+                        resolve(tracks);
+                    } catch (e) {
+                        print('❌ Erreur parsing tracks: ${e}');
+                        resolve([]);
+                    }
+                } else {
+                    print('⚠️ Erreur API tracks: ${response.statusCode}');
+                    resolve([]);
+                }
+            }).catchError((error) {
+                print('❌ Erreur réseau tracks: ${error}');
+                resolve([]);
+            });
+        });
+    }
+    
+    fun _searchAlbums(query: String, offset: number, limit: number) -> Future {
+        return Future((resolve, reject) {
+            final encodedQuery = Uri.encodeComponent(query);
+            final url = '/search/album?q=${encodedQuery}&index=${offset}&limit=${limit}';
+            
+            this.publicClient.get(url).then((response) {
+                if (response.statusCode == 200) {
+                    try {
+                        final data = response.toJson();
+                        final albums = [];
+                        
+                        if (data.data && data.data.isNotEmpty) {
+                            for (album in data.data) {
+                                albums.add(this._mapAlbumToSpotube(album));
+                            }
+                        }
+                        
+                        resolve(albums);
+                    } catch (e) {
+                        resolve([]);
+                    }
+                } else {
+                    resolve([]);
+                }
+            }).catchError((error) {
+                resolve([]);
+            });
+        });
+    }
+    
+    fun _searchArtists(query: String, offset: number, limit: number) -> Future {
+        return Future((resolve, reject) {
+            final encodedQuery = Uri.encodeComponent(query);
+            final url = '/search/artist?q=${encodedQuery}&index=${offset}&limit=${limit}';
+            
+            this.publicClient.get(url).then((response) {
+                if (response.statusCode == 200) {
+                    try {
+                        final data = response.toJson();
+                        final artists = [];
+                        
+                        if (data.data && data.data.isNotEmpty) {
+                            for (artist in data.data) {
+                                artists.add(this._mapArtistToSpotube(artist));
+                            }
+                        }
+                        
+                        resolve(artists);
+                    } catch (e) {
+                        resolve([]);
+                    }
+                } else {
+                    resolve([]);
+                }
+            }).catchError((error) {
+                resolve([]);
+            });
+        });
+    }
+    
+    fun _searchPlaylists(query: String, offset: number, limit: number) -> Future {
+        return Future((resolve, reject) {
+            final encodedQuery = Uri.encodeComponent(query);
+            final url = '/search/playlist?q=${encodedQuery}&index=${offset}&limit=${limit}';
+            
+            this.publicClient.get(url).then((response) {
+                if (response.statusCode == 200) {
+                    try {
+                        final data = response.toJson();
+                        final playlists = [];
+                        
+                        if (data.data && data.data.isNotEmpty) {
+                            for (playlist in data.data) {
+                                playlists.add(this._mapPlaylistToSpotube(playlist));
+                            }
+                        }
+                        
+                        resolve(playlists);
+                    } catch (e) {
+                        resolve([]);
+                    }
+                } else {
+                    resolve([]);
+                }
+            }).catchError((error) {
+                resolve([]);
+            });
+        });
+    }
+    
+    fun _mapTrackToSpotube(deezerTrack: Map) -> Map {
+        return {
+            'id': deezerTrack.id?.toString() || '0',
+            'name': deezerTrack.title || 'Titre inconnu',
+            'externalUri': deezerTrack.link || '',
+            'artists': [{
+                'id': deezerTrack.artist?.id?.toString() || '0',
+                'name': deezerTrack.artist?.name || 'Artiste inconnu',
+                'externalUri': deezerTrack.artist?.link || ''
+            }],
+            'album': {
+                'id': deezerTrack.album?.id?.toString() || '0',
+                'name': deezerTrack.album?.title || 'Album inconnu',
+                'externalUri': deezerTrack.album?.link || '',
+                'images': deezerTrack.album?.cover_medium ? [{
+                    'url': deezerTrack.album.cover_medium,
+                    'width': 250,
+                    'height': 250
+                }, {
+                    'url': deezerTrack.album.cover_big || deezerTrack.album.cover_medium,
+                    'width': 500,
+                    'height': 500
+                }] : []
+            },
+            'durationMs': (deezerTrack.duration || 0) * 1000,
+            'explicit': deezerTrack.explicit_lyrics || false,
+            'isrc': deezerTrack.isrc || '',
+            'popularity': deezerTrack.rank || 0,
+            'previewUrl': deezerTrack.preview || null,
+            'discNumber': 1,
+            'trackNumber': deezerTrack.track_position || 0
+        };
+    }
+    
+    fun _mapAlbumToSpotube(deezerAlbum: Map) -> Map {
+        return {
+            'id': deezerAlbum.id?.toString() || '0',
+            'name': deezerAlbum.title || 'Album inconnu',
+            'externalUri': deezerAlbum.link || '',
+            'images': deezerAlbum.cover_medium ? [{
+                'url': deezerAlbum.cover_medium,
+                'width': 250,
+                'height': 250
+            }, {
+                'url': deezerAlbum.cover_big || deezerAlbum.cover_medium,
+                'width': 500,
+                'height': 500
+            }] : [],
+            'albumType': deezerAlbum.record_type || 'album',
+            'artists': [{
+                'id': deezerAlbum.artist?.id?.toString() || '0',
+                'name': deezerAlbum.artist?.name || 'Artiste inconnu',
+                'externalUri': deezerAlbum.artist?.link || ''
+            }],
+            'releaseDate': deezerAlbum.release_date || '',
+            'totalTracks': deezerAlbum.nb_tracks || 0,
+            'copyrights': [],
+            'genres': []
+        };
+    }
+    
+    fun _mapArtistToSpotube(deezerArtist: Map) -> Map {
+        return {
+            'id': deezerArtist.id?.toString() || '0',
+            'name': deezerArtist.name || 'Artiste inconnu',
+            'externalUri': deezerArtist.link || '',
+            'images': deezerArtist.picture_medium ? [{
+                'url': deezerArtist.picture_medium,
+                'width': 250,
+                'height': 250
+            }, {
+                'url': deezerArtist.picture_big || deezerArtist.picture_medium,
+                'width': 500,
+                'height': 500
+            }] : [],
+            'followers': deezerArtist.nb_fan || 0,
+            'genres': [],
+            'popularity': deezerArtist.nb_fan || 0
+        };
+    }
+    
+    fun _mapPlaylistToSpotube(deezerPlaylist: Map) -> Map {
+        return {
+            'id': deezerPlaylist.id?.toString() || '0',
+            'name': deezerPlaylist.title || 'Playlist inconnue',
+            'description': deezerPlaylist.description || '',
+            'externalUri': deezerPlaylist.link || '',
+            'images': deezerPlaylist.picture_medium ? [{
+                'url': deezerPlaylist.picture_medium,
+                'width': 250,
+                'height': 250
+            }, {
+                'url': deezerPlaylist.picture_big || deezerPlaylist.picture_medium,
+                'width': 500,
+                'height': 500
+            }] : [],
+            'owner': {
+                'id': deezerPlaylist.user?.id?.toString() || '0',
+                'name': deezerPlaylist.user?.name || 'Utilisateur inconnu',
+                'externalUri': deezerPlaylist.user?.link || ''
+            },
+            'totalTracks': deezerPlaylist.nb_tracks || 0,
+            'collaborative': false,
+            'public': deezerPlaylist.public || false,
+            'followers': deezerPlaylist.fans || 0
+        };
+    }
+}

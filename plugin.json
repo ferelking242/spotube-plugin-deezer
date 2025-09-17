@@ -1,0 +1,16 @@
+{
+  "type": "metadata",
+  "version": "1.0.0",
+  "name": "deezer-arl-metadata",
+  "displayName": "Deezer ARL Metadata Provider",
+  "author": "000Tonio",
+  "description": "Plugin de métadonnées Deezer utilisant l'ARL pour l'authentification. Fournit l'accès aux métadonnées complètes de Deezer sans OAuth.",
+  "entryPoint": "DeezerARLPlugin",
+  "apis": ["webview", "localstorage"],
+  "abilities": ["authentication", "search", "metadata"],
+  "repository": "https://github.com/votre-username/spotube-deezer-arl-plugin",
+  "pluginApiVersion": "1.0.0",
+  "homepage": "https://github.com/votre-username/spotube-deezer-arl-plugin",
+  "platforms": ["windows", "linux", "macos", "android", "ios"],
+  "keywords": ["deezer", "metadata", "arl", "spotube", "music"]
+}

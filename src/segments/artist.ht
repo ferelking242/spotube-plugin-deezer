@@ -1,0 +1,209 @@
+class ArtistEndpoint {
+    var publicClient: HttpClient;
+    var privateClient: HttpClient;
+    var auth: AuthEndpoint;
+    
+    construct(this.publicClient, this.privateClient, this.auth) {
+        print('🎤 Initialisation de l\'endpoint Artist');
+    }
+    
+    fun get(id: String) -> Future {
+        return Future((resolve, reject) {
+            print('🎤 Récupération de l\'artiste ID: ${id}');
+            
+            final url = '/artist/${id}';
+            
+            this.publicClient.get(url).then((response) {
+                if (response.statusCode == 200) {
+                    try {
+                        final data = response.toJson();
+                        final artist = this._mapArtistToSpotube(data);
+                        print('✅ Artiste récupéré: ${artist.name} (${artist.followers} fans)');
+                        resolve(artist);
+                    } catch (e) {
+                        print('❌ Erreur parsing artiste: ${e}');
+                        reject('Erreur lors du parsing de l\'artiste: ${e}');
+                    }
+                } else {
+                    print('❌ Artiste non trouvé: ${response.statusCode}');
+                    reject('Artiste non trouvé');
+                }
+            }).catchError((error) {
+                print('❌ Erreur réseau artiste: ${error}');
+                reject(error.toString());
+            });
+        });
+    }
+    
+    fun getTopTracks(id: String, offset: number = 0, limit: number = 20) -> Future {
+        return Future((resolve, reject) {
+            print('🔥 Récupération des top titres de l\'artiste ${id}');
+            
+            final url = '/artist/${id}/top?index=${offset}&limit=${limit}';
+            
+            this.publicClient.get(url).then((response) {
+                if (response.statusCode == 200) {
+                    try {
+                        final data = response.toJson();
+                        final tracks = [];
+                        
+                        if (data.data && data.data.isNotEmpty) {
+                            for (track in data.data) {
+                                tracks.add(this._mapTrackToSpotube(track));
+                            }
+                        }
+                        
+                        print('✅ ${tracks.length} top titres récupérés pour l\'artiste ${id}');
+                        resolve(tracks);
+                    } catch (e) {
+                        print('❌ Erreur parsing top titres: ${e}');
+                        reject('Erreur lors du parsing des top titres: ${e}');
+                    }
+                } else {
+                    print('❌ Top titres non trouvés: ${response.statusCode}');
+                    reject('Top titres non trouvés');
+                }
+            }).catchError((error) {
+                print('❌ Erreur réseau top titres: ${error}');
+                reject(error.toString());
+            });
+        });
+    }
+    
+    fun getAlbums(id: String, offset: number = 0, limit: number = 20) -> Future {
+        return Future((resolve, reject) {
+            print('💿 Récupération des albums de l\'artiste ${id}');
+            
+            final url = '/artist/${id}/albums?index=${offset}&limit=${limit}';
+            
+            this.publicClient.get(url).then((response) {
+                if (response.statusCode == 200) {
+                    try {
+                        final data = response.toJson();
+                        final albums = [];
+                        
+                        if (data.data && data.data.isNotEmpty) {
+                            for (album in data.data) {
+                                albums.add(this._mapAlbumToSpotube(album));
+                            }
+                        }
+                        
+                        print('✅ ${albums.length} albums récupérés pour l\'artiste ${id}');
+                        resolve(albums);
+                    } catch (e) {
+                        print('❌ Erreur parsing albums artiste: ${e}');
+                        reject('Erreur lors du parsing des albums: ${e}');
+                    }
+                } else {
+                    print('❌ Albums non trouvés: ${response.statusCode}');
+                    reject('Albums non trouvés');
+                }
+            }).catchError((error) {
+                print('❌ Erreur réseau albums artiste: ${error}');
+                reject(error.toString());
+            });
+        });
+    }
+    
+    fun getRelatedArtists(id: String, limit: number = 20) -> Future {
+        return Future((resolve, reject) {
+            print('👥 Récupération des artistes similaires à ${id}');
+            
+            final url = '/artist/${id}/related?index=0&limit=${limit}';
+            
+            this.publicClient.get(url).then((response) {
+                if (response.statusCode == 200) {
+                    try {
+                        final data = response.toJson();
+                        final artists = [];
+                        
+                        if (data.data && data.data.isNotEmpty) {
+                            for (artist in data.data) {
+                                artists.add(this._mapArtistToSpotube(artist));
+                            }
+                        }
+                        
+                        print('✅ ${artists.length} artistes similaires trouvés');
+                        resolve(artists);
+                    } catch (e) {
+                        print('❌ Erreur parsing artistes similaires: ${e}');
+                        resolve([]);
+                    }
+                } else {
+                    print('⚠️ Pas d\'artistes similaires disponibles');
+                    resolve([]);
+                }
+            }).catchError((error) {
+                print('❌ Erreur réseau artistes similaires: ${error}');
+                resolve([]);
+            });
+        });
+    }
+    
+    fun _mapArtistToSpotube(deezerArtist: Map) -> Map {
+        return {
+            'id': deezerArtist.id?.toString() || '0',
+            'name': deezerArtist.name || 'Artiste inconnu',
+            'externalUri': deezerArtist.link || '',
+            'images': deezerArtist.picture_medium ? [{
+                'url': deezerArtist.picture_small || deezerArtist.picture_medium,
+                'width': 64,
+                'height': 64
+            }, {
+                'url': deezerArtist.picture_medium,
+                'width': 300,
+                'height': 300
+            }, {
+                'url': deezerArtist.picture_big || deezerArtist.picture_xl || deezerArtist.picture_medium,
+                'width': 640,
+                'height': 640
+            }] : [],
+            'followers': deezerArtist.nb_fan || 0,
+            'genres': [],
+            'popularity': Math.min(100, (deezerArtist.nb_fan || 0) ~/ 1000)
+        };
+    }
+    
+    fun _mapTrackToSpotube(deezerTrack: Map) -> Map {
+        return {
+            'id': deezerTrack.id?.toString() || '0',
+            'name': deezerTrack.title || 'Titre inconnu',
+            'externalUri': deezerTrack.link || '',
+            'artists': [{
+                'id': deezerTrack.artist?.id?.toString() || '0',
+                'name': deezerTrack.artist?.name || 'Artiste inconnu',
+                'externalUri': deezerTrack.artist?.link || ''
+            }],
+            'album': {
+                'id': deezerTrack.album?.id?.toString() || '0',
+                'name': deezerTrack.album?.title || 'Album inconnu',
+                'externalUri': deezerTrack.album?.link || '',
+                'images': deezerTrack.album?.cover_medium ? [{
+                    'url': deezerTrack.album.cover_medium,
+                    'width': 300,
+                    'height': 300
+                }] : []
+            },
+            'durationMs': (deezerTrack.duration || 0) * 1000,
+            'explicit': deezerTrack.explicit_lyrics || false,
+            'popularity': deezerTrack.rank || 0,
+            'previewUrl': deezerTrack.preview || null
+        };
+    }
+    
+    fun _mapAlbumToSpotube(deezerAlbum: Map) -> Map {
+        return {
+            'id': deezerAlbum.id?.toString() || '0',
+            'name': deezerAlbum.title || 'Album inconnu',
+            'externalUri': deezerAlbum.link || '',
+            'images': deezerAlbum.cover_medium ? [{
+                'url': deezerAlbum.cover_medium,
+                'width': 300,
+                'height': 300
+            }] : [],
+            'albumType': deezerAlbum.record_type || 'album',
+            'releaseDate': deezerAlbum.release_date || '',
+            'totalTracks': deezerAlbum.nb_tracks || 0
+        };
+    }
+}

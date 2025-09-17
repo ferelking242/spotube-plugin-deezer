@@ -1,0 +1,291 @@
+class BrowseEndpoint {
+    var publicClient: HttpClient;
+    var privateClient: HttpClient;
+    var auth: AuthEndpoint;
+    
+    construct(this.publicClient, this.privateClient, this.auth) {
+        print('🌍 Initialisation de l\'endpoint Browse');
+    }
+    
+    fun getGenres() -> Future {
+        return Future((resolve, reject) {
+            print('🎭 Récupération des genres...');
+            
+            final url = '/genre';
+            
+            this.publicClient.get(url).then((response) {
+                if (response.statusCode == 200) {
+                    try {
+                        final data = response.toJson();
+                        final genres = [];
+                        
+                        if (data.data && data.data.isNotEmpty) {
+                            for (genre in data.data) {
+                                genres.add({
+                                    'id': genre.id?.toString() || '0',
+                                    'name': genre.name || 'Genre inconnu',
+                                    'picture': genre.picture_medium || '',
+                                    'icons': [{
+                                        'url': genre.picture_medium || '',
+                                        'width': 300,
+                                        'height': 300
+                                    }]
+                                });
+                            }
+                        }
+                        
+                        print('✅ ${genres.length} genres récupérés');
+                        resolve(genres);
+                    } catch (e) {
+                        print('❌ Erreur parsing genres: ${e}');
+                        reject('Erreur lors du parsing des genres: ${e}');
+                    }
+                } else {
+                    print('❌ Erreur récupération genres: ${response.statusCode}');
+                    reject('Erreur lors de la récupération des genres');
+                }
+            }).catchError((error) {
+                print('❌ Erreur réseau genres: ${error}');
+                reject(error.toString());
+            });
+        });
+    }
+    
+    fun getChart(offset: number = 0, limit: number = 50) -> Future {
+        return Future((resolve, reject) {
+            print('📈 Récupération du top chart...');
+            
+            final url = '/chart/0/tracks?index=${offset}&limit=${limit}';
+            
+            this.publicClient.get(url).then((response) {
+                if (response.statusCode == 200) {
+                    try {
+                        final data = response.toJson();
+                        final tracks = [];
+                        
+                        if (data.data && data.data.isNotEmpty) {
+                            for (track in data.data) {
+                                tracks.add(this._mapTrackToSpotube(track));
+                            }
+                        }
+                        
+                        print('✅ ${tracks.length} titres du top chart récupérés');
+                        resolve(tracks);
+                    } catch (e) {
+                        print('❌ Erreur parsing top chart: ${e}');
+                        reject('Erreur lors du parsing du top chart: ${e}');
+                    }
+                } else {
+                    print('❌ Erreur récupération top chart: ${response.statusCode}');
+                    reject('Erreur lors de la récupération du top chart');
+                }
+            }).catchError((error) {
+                print('❌ Erreur réseau top chart: ${error}');
+                reject(error.toString());
+            });
+        });
+    }
+    
+    fun getNewReleases(offset: number = 0, limit: number = 50) -> Future {
+        return Future((resolve, reject) {
+            print('🆕 Récupération des nouveautés...');
+            
+            final url = '/chart/0/albums?index=${offset}&limit=${limit}';
+            
+            this.publicClient.get(url).then((response) {
+                if (response.statusCode == 200) {
+                    try {
+                        final data = response.toJson();
+                        final albums = [];
+                        
+                        if (data.data && data.data.isNotEmpty) {
+                            for (album in data.data) {
+                                albums.add(this._mapAlbumToSpotube(album));
+                            }
+                        }
+                        
+                        print('✅ ${albums.length} nouveautés récupérées');
+                        resolve(albums);
+                    } catch (e) {
+                        print('❌ Erreur parsing nouveautés: ${e}');
+                        reject('Erreur lors du parsing des nouveautés: ${e}');
+                    }
+                } else {
+                    print('❌ Erreur récupération nouveautés: ${response.statusCode}');
+                    reject('Erreur lors de la récupération des nouveautés');
+                }
+            }).catchError((error) {
+                print('❌ Erreur réseau nouveautés: ${error}');
+                reject(error.toString());
+            });
+        });
+    }
+    
+    fun getFeaturedPlaylists(offset: number = 0, limit: number = 20) -> Future {
+        return Future((resolve, reject) {
+            print('⭐ Récupération des playlists populaires...');
+            
+            final url = '/chart/0/playlists?index=${offset}&limit=${limit}';
+            
+            this.publicClient.get(url).then((response) {
+                if (response.statusCode == 200) {
+                    try {
+                        final data = response.toJson();
+                        final playlists = [];
+                        
+                        if (data.data && data.data.isNotEmpty) {
+                            for (playlist in data.data) {
+                                playlists.add(this._mapPlaylistToSpotube(playlist));
+                            }
+                        }
+                        
+                        print('✅ ${playlists.length} playlists populaires récupérées');
+                        resolve(playlists);
+                    } catch (e) {
+                        print('❌ Erreur parsing playlists populaires: ${e}');
+                        resolve([]);
+                    }
+                } else {
+                    print('⚠️ Playlists populaires non disponibles');
+                    resolve([]);
+                }
+            }).catchError((error) {
+                print('❌ Erreur réseau playlists populaires: ${error}');
+                resolve([]);
+            });
+        });
+    }
+    
+    fun getGenreContent(genreId: String, type: String = 'tracks', offset: number = 0, limit: number = 50) -> Future {
+        return Future((resolve, reject) {
+            print('🎭 Récupération du contenu pour le genre ${genreId} (${type})...');
+            
+            final url = '/genre/${genreId}/${type}?index=${offset}&limit=${limit}';
+            
+            this.publicClient.get(url).then((response) {
+                if (response.statusCode == 200) {
+                    try {
+                        final data = response.toJson();
+                        final content = [];
+                        
+                        if (data.data && data.data.isNotEmpty) {
+                            for (item in data.data) {
+                                switch (type) {
+                                    case 'tracks':
+                                        content.add(this._mapTrackToSpotube(item));
+                                        break;
+                                    case 'albums':
+                                        content.add(this._mapAlbumToSpotube(item));
+                                        break;
+                                    case 'artists':
+                                        content.add(this._mapArtistToSpotube(item));
+                                        break;
+                                    case 'playlists':
+                                        content.add(this._mapPlaylistToSpotube(item));
+                                        break;
+                                }
+                            }
+                        }
+                        
+                        print('✅ ${content.length} éléments récupérés pour le genre ${genreId}');
+                        resolve(content);
+                    } catch (e) {
+                        print('❌ Erreur parsing contenu genre: ${e}');
+                        resolve([]);
+                    }
+                } else {
+                    print('⚠️ Contenu genre non disponible');
+                    resolve([]);
+                }
+            }).catchError((error) {
+                print('❌ Erreur réseau contenu genre: ${error}');
+                resolve([]);
+            });
+        });
+    }
+    
+    fun _mapTrackToSpotube(deezerTrack: Map) -> Map {
+        return {
+            'id': deezerTrack.id?.toString() || '0',
+            'name': deezerTrack.title || 'Titre inconnu',
+            'externalUri': deezerTrack.link || '',
+            'artists': [{
+                'id': deezerTrack.artist?.id?.toString() || '0',
+                'name': deezerTrack.artist?.name || 'Artiste inconnu',
+                'externalUri': deezerTrack.artist?.link || ''
+            }],
+            'album': {
+                'id': deezerTrack.album?.id?.toString() || '0',
+                'name': deezerTrack.album?.title || 'Album inconnu',
+                'externalUri': deezerTrack.album?.link || '',
+                'images': deezerTrack.album?.cover_medium ? [{
+                    'url': deezerTrack.album.cover_medium,
+                    'width': 300,
+                    'height': 300
+                }] : []
+            },
+            'durationMs': (deezerTrack.duration || 0) * 1000,
+            'explicit': deezerTrack.explicit_lyrics || false,
+            'popularity': deezerTrack.position || deezerTrack.rank || 0,
+            'previewUrl': deezerTrack.preview || null
+        };
+    }
+    
+    fun _mapAlbumToSpotube(deezerAlbum: Map) -> Map {
+        return {
+            'id': deezerAlbum.id?.toString() || '0',
+            'name': deezerAlbum.title || 'Album inconnu',
+            'externalUri': deezerAlbum.link || '',
+            'images': deezerAlbum.cover_medium ? [{
+                'url': deezerAlbum.cover_medium,
+                'width': 300,
+                'height': 300
+            }] : [],
+            'albumType': deezerAlbum.record_type || 'album',
+            'artists': [{
+                'id': deezerAlbum.artist?.id?.toString() || '0',
+                'name': deezerAlbum.artist?.name || 'Artiste inconnu',
+                'externalUri': deezerAlbum.artist?.link || ''
+            }],
+            'releaseDate': deezerAlbum.release_date || '',
+            'totalTracks': deezerAlbum.nb_tracks || 0
+        };
+    }
+    
+    fun _mapArtistToSpotube(deezerArtist: Map) -> Map {
+        return {
+            'id': deezerArtist.id?.toString() || '0',
+            'name': deezerArtist.name || 'Artiste inconnu',
+            'externalUri': deezerArtist.link || '',
+            'images': deezerArtist.picture_medium ? [{
+                'url': deezerArtist.picture_medium,
+                'width': 300,
+                'height': 300
+            }] : [],
+            'followers': deezerArtist.nb_fan || 0,
+            'genres': [],
+            'popularity': 0
+        };
+    }
+    
+    fun _mapPlaylistToSpotube(deezerPlaylist: Map) -> Map {
+        return {
+            'id': deezerPlaylist.id?.toString() || '0',
+            'name': deezerPlaylist.title || 'Playlist inconnue',
+            'description': deezerPlaylist.description || '',
+            'externalUri': deezerPlaylist.link || '',
+            'images': deezerPlaylist.picture_medium ? [{
+                'url': deezerPlaylist.picture_medium,
+                'width': 300,
+                'height': 300
+            }] : [],
+            'owner': {
+                'id': deezerPlaylist.user?.id?.toString() || '0',
+                'name': deezerPlaylist.user?.name || 'Deezer'
+            },
+            'totalTracks': deezerPlaylist.nb_tracks || 0,
+            'public': true,
+            'followers': deezerPlaylist.fans || 0
+        };
+    }
+}

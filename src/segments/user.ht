@@ -1,0 +1,227 @@
+class UserEndpoint {
+    var publicClient: HttpClient;
+    var privateClient: HttpClient;
+    var auth: AuthEndpoint;
+    
+    construct(this.publicClient, this.privateClient, this.auth) {
+        print('👤 Initialisation de l\'endpoint User');
+    }
+    
+    fun me() -> Future {
+        return Future((resolve, reject) {
+            if (!this.auth.isAuthenticated()) {
+                print('❌ Utilisateur non authentifié pour récupérer le profil');
+                reject('Utilisateur non authentifié - ARL requis');
+                return;
+            }
+            
+            if (this.auth.userData != null && this.auth.userData.USER != null) {
+                final user = this._mapUserToSpotube(this.auth.userData.USER);
+                print('✅ Profil utilisateur récupéré: ${user.name}');
+                resolve(user);
+            } else {
+                print('❌ Données utilisateur non disponibles');
+                reject('Données utilisateur non disponibles');
+            }
+        });
+    }
+    
+    fun getPlaylists(offset: number = 0, limit: number = 50) -> Future {
+        return Future((resolve, reject) {
+            if (!this.auth.isAuthenticated()) {
+                print('❌ Authentification requise pour récupérer les playlists');
+                reject('Authentification requise - ARL requis');
+                return;
+            }
+            
+            print('📋 Récupération des playlists utilisateur...');
+            
+            final headers = this.auth.getAuthHeaders();
+            final url = '/ajax/gw-light.php?method=playlist.getUserPlaylists&input=3&api_version=1.0&api_token=';
+            
+            this.privateClient.get(url, headers: headers).then((response) {
+                if (response.statusCode == 200) {
+                    try {
+                        final data = response.toJson();
+                        final playlists = [];
+                        
+                        if (data.results && data.results.DATA && data.results.DATA.isNotEmpty) {
+                            for (playlist in data.results.DATA) {
+                                playlists.add(this._mapPrivatePlaylistToSpotube(playlist));
+                            }
+                        }
+                        
+                        print('✅ ${playlists.length} playlists utilisateur récupérées');
+                        resolve(playlists);
+                    } catch (e) {
+                        print('❌ Erreur parsing playlists utilisateur: ${e}');
+                        resolve([]);
+                    }
+                } else {
+                    print('❌ Erreur API playlists utilisateur: ${response.statusCode}');
+                    reject('Erreur lors de la récupération des playlists');
+                }
+            }).catchError((error) {
+                print('❌ Erreur réseau playlists utilisateur: ${error}');
+                reject(error.toString());
+            });
+        });
+    }
+    
+    fun getFavoriteAlbums(offset: number = 0, limit: number = 50) -> Future {
+        return Future((resolve, reject) {
+            if (!this.auth.isAuthenticated()) {
+                reject('Authentification requise - ARL requis');
+                return;
+            }
+            
+            print('💿 Récupération des albums favoris...');
+            
+            final headers = this.auth.getAuthHeaders();
+            final url = '/ajax/gw-light.php?method=album.getFavorites&input=3&api_version=1.0&api_token=';
+            
+            this.privateClient.get(url, headers: headers).then((response) {
+                if (response.statusCode == 200) {
+                    try {
+                        final data = response.toJson();
+                        final albums = [];
+                        
+                        if (data.results && data.results.DATA && data.results.DATA.isNotEmpty) {
+                            for (album in data.results.DATA) {
+                                albums.add(this._mapFavoriteAlbumToSpotube(album));
+                            }
+                        }
+                        
+                        print('✅ ${albums.length} albums favoris récupérés');
+                        resolve(albums);
+                    } catch (e) {
+                        print('❌ Erreur parsing albums favoris: ${e}');
+                        resolve([]);
+                    }
+                } else {
+                    print('⚠️ Albums favoris non accessibles');
+                    resolve([]);
+                }
+            }).catchError((error) {
+                print('❌ Erreur réseau albums favoris: ${error}');
+                resolve([]);
+            });
+        });
+    }
+    
+    fun getFollowedArtists(offset: number = 0, limit: number = 50) -> Future {
+        return Future((resolve, reject) {
+            if (!this.auth.isAuthenticated()) {
+                reject('Authentification requise - ARL requis');
+                return;
+            }
+            
+            print('🎤 Récupération des artistes suivis...');
+            
+            final headers = this.auth.getAuthHeaders();
+            final url = '/ajax/gw-light.php?method=artist.getFavorites&input=3&api_version=1.0&api_token=';
+            
+            this.privateClient.get(url, headers: headers).then((response) {
+                if (response.statusCode == 200) {
+                    try {
+                        final data = response.toJson();
+                        final artists = [];
+                        
+                        if (data.results && data.results.DATA && data.results.DATA.isNotEmpty) {
+                            for (artist in data.results.DATA) {
+                                artists.add(this._mapFavoriteArtistToSpotube(artist));
+                            }
+                        }
+                        
+                        print('✅ ${artists.length} artistes suivis récupérés');
+                        resolve(artists);
+                    } catch (e) {
+                        print('❌ Erreur parsing artistes suivis: ${e}');
+                        resolve([]);
+                    }
+                } else {
+                    print('⚠️ Artistes suivis non accessibles');
+                    resolve([]);
+                }
+            }).catchError((error) {
+                print('❌ Erreur réseau artistes suivis: ${error}');
+                resolve([]);
+            });
+        });
+    }
+    
+    fun _mapUserToSpotube(deezerUser: Map) -> Map {
+        return {
+            'id': deezerUser.USER_ID?.toString() || '0',
+            'name': deezerUser.BLOG_NAME || deezerUser.USERNAME || 'Utilisateur',
+            'displayName': deezerUser.BLOG_NAME || deezerUser.USERNAME || 'Utilisateur',
+            'email': deezerUser.EMAIL || '',
+            'country': deezerUser.COUNTRY || 'FR',
+            'images': deezerUser.USER_PICTURE ? [{
+                'url': deezerUser.USER_PICTURE,
+                'width': 56,
+                'height': 56
+            }] : [],
+            'followers': 0,
+            'product': deezerUser.OPTIONS?.web_hq || deezerUser.OPTIONS?.web_sound_quality?.lossless ? 'premium' : 'free',
+            'externalUri': 'https://www.deezer.com/profile/${deezerUser.USER_ID}'
+        };
+    }
+    
+    fun _mapPrivatePlaylistToSpotube(deezerPlaylist: Map) -> Map {
+        return {
+            'id': deezerPlaylist.PLAYLIST_ID?.toString() || '0',
+            'name': deezerPlaylist.TITLE || 'Playlist inconnue',
+            'description': deezerPlaylist.DESCRIPTION || '',
+            'externalUri': 'https://www.deezer.com/playlist/${deezerPlaylist.PLAYLIST_ID}',
+            'images': deezerPlaylist.PLAYLIST_PICTURE ? [{
+                'url': deezerPlaylist.PLAYLIST_PICTURE,
+                'width': 300,
+                'height': 300
+            }] : [],
+            'owner': {
+                'id': deezerPlaylist.PARENT_USER_ID?.toString() || '0',
+                'name': deezerPlaylist.PARENT_USERNAME || 'Moi'
+            },
+            'totalTracks': deezerPlaylist.NB_SONG || 0,
+            'collaborative': false,
+            'public': deezerPlaylist.STATUS == 1
+        };
+    }
+    
+    fun _mapFavoriteAlbumToSpotube(deezerAlbum: Map) -> Map {
+        return {
+            'id': deezerAlbum.ALB_ID?.toString() || '0',
+            'name': deezerAlbum.ALB_TITLE || 'Album inconnu',
+            'externalUri': 'https://www.deezer.com/album/${deezerAlbum.ALB_ID}',
+            'images': deezerAlbum.ALB_PICTURE ? [{
+                'url': deezerAlbum.ALB_PICTURE,
+                'width': 300,
+                'height': 300
+            }] : [],
+            'albumType': 'album',
+            'artists': [{
+                'id': deezerAlbum.ART_ID?.toString() || '0',
+                'name': deezerAlbum.ART_NAME || 'Artiste inconnu'
+            }],
+            'releaseDate': deezerAlbum.PHYSICAL_RELEASE_DATE || '',
+            'totalTracks': 0
+        };
+    }
+    
+    fun _mapFavoriteArtistToSpotube(deezerArtist: Map) -> Map {
+        return {
+            'id': deezerArtist.ART_ID?.toString() || '0',
+            'name': deezerArtist.ART_NAME || 'Artiste inconnu',
+            'externalUri': 'https://www.deezer.com/artist/${deezerArtist.ART_ID}',
+            'images': deezerArtist.ART_PICTURE ? [{
+                'url': deezerArtist.ART_PICTURE,
+                'width': 300,
+                'height': 300
+            }] : [],
+            'followers': deezerArtist.NB_FAN || 0,
+            'genres': [],
+            'popularity': 0
+        };
+    }
+}

@@ -1,0 +1,70 @@
+import { AuthEndpoint } from './segments/auth.ht';
+import { SearchEndpoint } from './segments/search.ht';
+import { TrackEndpoint } from './segments/track.ht';
+import { AlbumEndpoint } from './segments/album.ht';
+import { ArtistEndpoint } from './segments/artist.ht';
+import { PlaylistEndpoint } from './segments/playlist.ht';
+import { UserEndpoint } from './segments/user.ht';
+import { BrowseEndpoint } from './segments/browse.ht';
+
+/**
+ * Plugin Deezer ARL pour Spotube
+ * Utilise l'ARL (Authentication Reference Link) de Deezer pour accéder aux métadonnées
+ * 
+ * @author 000Tonio
+ * @version 1.0.0
+ */
+class DeezerARLPlugin {
+    // Endpoints obligatoires pour Spotube
+    var auth: AuthEndpoint;
+    var search: SearchEndpoint;
+    var track: TrackEndpoint;
+    var album: AlbumEndpoint;
+    var artist: ArtistEndpoint;
+    var playlist: PlaylistEndpoint;
+    var user: UserEndpoint;
+    var browse: BrowseEndpoint;
+    
+    // Clients HTTP
+    var httpClient: HttpClient;
+    var privateClient: HttpClient;
+    
+    construct() {
+        print('🎵 Initialisation du plugin Deezer ARL...');
+        
+        // Client pour l'API publique Deezer
+        this.httpClient = HttpClient(HttpBaseOptions(
+            baseUrl: 'https://api.deezer.com',
+            headers: {
+                'User-Agent': 'SpotubeDeezerPlugin/1.0.0',
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            },
+            timeout: 30000
+        ));
+        
+        // Client pour l'API privée Deezer (avec ARL)
+        this.privateClient = HttpClient(HttpBaseOptions(
+            baseUrl: 'https://www.deezer.com',
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'Accept-Language': 'fr-FR,fr;q=0.9,en;q=0.8'
+            },
+            timeout: 30000
+        ));
+        
+        // Initialisation des endpoints
+        this.auth = AuthEndpoint(this.httpClient, this.privateClient);
+        this.search = SearchEndpoint(this.httpClient, this.privateClient, this.auth);
+        this.track = TrackEndpoint(this.httpClient, this.privateClient, this.auth);
+        this.album = AlbumEndpoint(this.httpClient, this.privateClient, this.auth);
+        this.artist = ArtistEndpoint(this.httpClient, this.privateClient, this.auth);
+        this.playlist = PlaylistEndpoint(this.httpClient, this.privateClient, this.auth);
+        this.user = UserEndpoint(this.httpClient, this.privateClient, this.auth);
+        this.browse = BrowseEndpoint(this.httpClient, this.privateClient, this.auth);
+        
+        print('✅ Plugin Deezer ARL initialisé avec succès');
+    }
+}
