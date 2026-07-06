@@ -1,12 +1,1 @@
-{
-  "type": "metadata",
-  "version": "0.1.3",
-  "name": "Deezer",
-  "author": "000Tonio",
-  "description": "Spotube plugin for Dezzer metadata",
-  "entryPoint": "DeezerARLPlugin",
-  "apis": ["webview", "localstorage"],
-  "abilities": ["authentication"],
-  "repository": "https://github.com/000Tonio/spotube-plugin-deezer",
-  "pluginApiVersion": "1.0.0"
-}
+{"version":"0.1.3","name":"Deezer","author":"000Tonio","description":"Spotube plugin for Deezer metadata","entryPoint":"DeezerARLPlugin","apis":["webview","localstorage"],"abilities":["authentication","metadata"],"repository":"https://github.com/ferelking242/spotube-plugin-deezer","pluginApiVersion":"2.0.0"}
