@@ -1,24 +1,16 @@
+.PHONY: compile archive clean
+
 compile:
-	hetu compile src/plugin.ht build/plugin.out; cp build/plugin.out example/assets/bytecode/
+	mkdir -p build
+	hetu compile src/plugin.ht build/plugin.out
 
-archive:
-	mkdir -p build/archive; \
-	cp plugin.json build/plugin.out assets/logo.png build/archive/; \
-	cd build/archive; \
-	zip -r plugin.zip ./; \
-	cd ../..; \
-	mv build/archive/plugin.zip build/plugin.smplug
-
-PLUGIN_NAME = deezer-arl-metadata
-
-default: build
-
-build:
-\thetu compile src/plugin.ht -o build/plugin.out
-\tmkdir -p dist
-\tcp build/plugin.out dist/plugin.hetu
-\tcp plugin.json dist/
-\tcd dist && zip -r $(PLUGIN_NAME).smplug plugin.json plugin.hetu
+archive: compile
+	mkdir -p build/archive
+	cp plugin.json build.plugin.out build/archive/
+	cp assets/logo.png build/archive/ 2>/dev/null || true
+	cd build/archive && rm -f ../plugin.smplug && zip -q -r ../plugin.smplug .
+	cp build/plugin.smplug .
+	@echo "✓ plugin.smplug"
 
 clean:
-\trm -rf build dist
+	rm -rf build plugin.smplug
