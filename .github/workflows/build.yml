@@ -1,27 +1,14 @@
-# ──────────────────────────────────────────────────────────────────────
-# CI Template for Watchtower Music Plugins
-# ──────────────────────────────────────────────────────────────────────
-# Copy this file to each plugin repo at .github/workflows/build.yml
-#
-# Triggers:
-#   - Push a v* tag → builds and creates a GitHub Release
-#   - Manual dispatch → build with custom version tag
-#
-# The workflow reads plugin.json for metadata (name, version, abilities)
-# and creates a formatted release with the .smplug artifact.
-# ──────────────────────────────────────────────────────────────────────
-
 name: Build & Release Plugin
 
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
   workflow_dispatch:
     inputs:
       version:
         type: string
-        description: "Version tag (e.g. 1.0.0). Leave empty to read from plugin.json."
+        description: "Version tag (e.g. 1.0.0)"
         required: false
         default: ""
 
@@ -34,8 +21,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -45,15 +30,21 @@ jobs:
       - name: Install Hetu compiler
         run: dart pub global activate hetu_script_dev_tools
 
+      - name: Clone dependencies
+        run: |
+          mkdir -p dependencies
+          git clone --depth 1 https://github.com/hetu-community/hetu_otp_util.git dependencies/hetu_otp_util
+          git clone --depth 1 --branch og-main https://github.com/sonic-liberation/hetu_spotify_gql_client.git dependencies/hetu_spotify_gql_client
+
       - name: Read plugin metadata
         id: meta
         run: |
-          NAME=$(python3 -c "import json; print(json.load(open('plugin.json'))['name'])")
-          VERSION=$(python3 -c "import json; print(json.load(open('plugin.json'))['version'])")
-          AUTHOR=$(python3 -c "import json; print(json.load(open('plugin.json'))['author'])")
-          ABILITIES=$(python3 -c "import json; print(', '.join(json.load(open('plugin.json')).get('abilities',[])))")
-          DESCRIPTION=$(python3 -c "import json; print(json.load(open('plugin.json')).get('description',''))")
-          REPO=$(python3 -c "import json; print(json.load(open('plugin.json')).get('repository',''))")
+          NAME=$(python3 -c "import json; print(json.load(open(\"plugin.json\"))[\"name\"])")
+          VERSION=$(python3 -c "import json; print(json.load(open(\"plugin.json\"))[\"version\"])")
+          AUTHOR=$(python3 -c "import json; print(json.load(open(\"plugin.json\"))[\"author\"])")
+          ABILITIES=$(python3 -c "import json; print(\", \".join(json.load(open(\"plugin.json\")).get(\"abilities\",[])))")
+          DESCRIPTION=$(python3 -c "import json; print(json.load(open(\"plugin.json\")).get(\"description\",\"\"))")
+          REPO=$(python3 -c "import json; print(json.load(open(\"plugin.json\")).get(\"repository\",\"\"))")
           echo "name=$NAME" >> $GITHUB_OUTPUT
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "author=$AUTHOR" >> $GITHUB_OUTPUT
