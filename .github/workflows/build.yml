@@ -21,8 +21,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -31,6 +29,12 @@ jobs:
 
       - name: Install Hetu compiler
         run: dart pub global activate hetu_script_dev_tools
+
+      - name: Clone dependencies
+        run: |
+          mkdir -p dependencies
+          git clone --depth 1 https://github.com/hetu-community/hetu_otp_util.git dependencies/hetu_otp_util
+          git clone --depth 1 --branch og-main https://github.com/sonic-liberation/hetu_spotify_gql_client.git dependencies/hetu_spotify_gql_client
 
       - name: Read plugin metadata
         id: meta
