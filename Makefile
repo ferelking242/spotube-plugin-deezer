@@ -6,7 +6,7 @@ compile:
 
 archive: compile
 	mkdir -p build/archive
-	cp plugin.json build.plugin.out build/archive/
+	cp plugin.json build/plugin.out build/archive/
 	cp assets/logo.png build/archive/ 2>/dev/null || true
 	cd build/archive && rm -f ../plugin.smplug && zip -q -r ../plugin.smplug .
 	cp build/plugin.smplug .
